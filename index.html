@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LEAD API - Documentação</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topo">
+    <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">&#9776;</button>
+    <div class="marca">
+        <span class="logo">LEAD</span>
+        <span class="titulo">API <small>v1</small></span>
+    </div>
+    <div class="base-url">
+        <span class="rotulo">Base URL</span>
+        <code id="baseUrl">...</code>
+        <button class="copiar" data-copiar="#baseUrl" title="Copiar">Copiar</button>
+    </div>
+    <button class="tema-btn" id="temaBtn" title="Alternar tema">&#9681;</button>
+</header>
+
+<div class="layout">
+
+    <!-- ── Menu lateral ─────────────────────────────────────────────── -->
+    <nav class="menu" id="menu">
+        <p class="menu-grupo">Introdução</p>
+        <a href="#visao-geral">Visão geral</a>
+        <a href="#inicio-rapido">Início rápido</a>
+        <a href="#autenticacao">Autenticação</a>
+
+        <p class="menu-grupo">Endpoints</p>
+        <a href="#incluir-lead" class="endpoint-link"><span class="metodo post">POST</span> Incluir lead</a>
+
+        <p class="menu-grupo">Referência</p>
+        <a href="#respostas">Formato da resposta</a>
+        <a href="#codigos">Códigos de retorno</a>
+        <a href="#idempotencia">Reenvio (chaveEvento)</a>
+        <a href="#limites">Limites e bloqueio</a>
+        <a href="#boas-praticas">Boas práticas</a>
+        <a href="#exemplos">Exemplos de código</a>
+        <a href="#duvidas">Dúvidas comuns</a>
+    </nav>
+
+    <main class="conteudo">
+
+        <!-- ── Visão geral ──────────────────────────────────────────── -->
+        <section id="visao-geral">
+            <h1>LEAD API</h1>
+            <p class="lead">
+                Envie leads do seu site, landing page, CRM ou chatbot diretamente para a unidade.
+                Cada unidade tem credenciais próprias e o lead é registrado na unidade vinculada à chave,
+                com verificação automática de duplicidade.
+            </p>
+
+            <div class="cards">
+                <div class="card">
+                    <h3>Formato</h3>
+                    <p>Envie JSON, <code>x-www-form-urlencoded</code> ou <code>form-data</code>. A resposta é sempre JSON (UTF-8).</p>
+                </div>
+                <div class="card">
+                    <h3>Segurança</h3>
+                    <p>Chave por unidade, limite de requisições por minuto, bloqueio automático e log de todas as chamadas.</p>
+                </div>
+                <div class="card">
+                    <h3>Sem duplicidade</h3>
+                    <p>Contatos já existentes não geram lead novo, e reenvios com a mesma <code>chaveEvento</code> são ignorados.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Início rápido ────────────────────────────────────────── -->
+        <section id="inicio-rapido">
+            <h2>Início rápido</h2>
+            <ol class="passos">
+                <li><strong>Receba as credenciais</strong> da integração: o código da unidade e a chave de API (48 caracteres, ex.: <code>3f9a1c0b...</code>).</li>
+                <li><strong>Envie um POST</strong> para <code>index.php?AC=ActionLeads&amp;a2=incluir</code> com os cabeçalhos <code>X-Unidade</code> e <code>X-Api-Key</code>.</li>
+                <li><strong>Leia o campo <code>codigo</code></strong> da resposta: <code>LEAD_CRIADO</code> significa sucesso.</li>
+            </ol>
+            <div class="bloco-codigo">
+                <div class="bloco-topo"><span>cURL</span><button class="copiar" data-copiar="#curlRapido">Copiar</button></div>
+<pre id="curlRapido"></pre>
+            </div>
+        </section>
+
+        <!-- ── Autenticação ─────────────────────────────────────────── -->
+        <section id="autenticacao">
+            <h2>Autenticação</h2>
+            <p>Toda requisição precisa do <strong>código da unidade</strong> e da <strong>chave de API</strong> dessa unidade.</p>
+
+            <table>
+                <thead><tr><th>Cabeçalho</th><th>Alternativa no corpo</th><th>Descrição</th></tr></thead>
+                <tbody>
+                    <tr><td><code>X-Unidade</code></td><td><code>unidade</code></td><td>Código da unidade (ex.: <code>00</code>).</td></tr>
+                    <tr><td><code>X-Api-Key</code></td><td><code>chave</code></td><td>Chave de 48 caracteres hexadecimais (0-9, a-f).</td></tr>
+                </tbody>
+            </table>
+
+            <div class="aviso alerta">
+                <strong>Use a chave somente no servidor.</strong>
+                Em JavaScript de página (navegador) ela fica visível para qualquer visitante.
+                Formulários de site devem enviar para o seu back-end, que chama a API.
+            </div>
+            <div class="aviso info">
+                Trate a chave como uma senha: guarde em variável de ambiente ou cofre de segredos, nunca no
+                repositório de código. Se ela vazar, solicite uma nova; a anterior deixa de funcionar na hora.
+                Sempre use <strong>HTTPS</strong> em produção.
+            </div>
+        </section>
+
+        <!-- ── Endpoint ─────────────────────────────────────────────── -->
+        <section id="incluir-lead">
+            <h2><span class="metodo post">POST</span> Incluir lead</h2>
+            <div class="rota">
+                <code><span class="metodo-texto">POST</span> /index.php?AC=<strong>ActionLeads</strong>&amp;a2=<strong>incluir</strong></code>
+            </div>
+            <p>Registra um lead na unidade vinculada à sua chave. Se o contato já existir, nenhum lead novo é criado e a resposta informa o motivo.</p>
+
+            <h3>Parâmetros do corpo</h3>
+            <table class="params">
+                <thead><tr><th>Campo</th><th>Tipo</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
+                <tbody>
+                    <tr><td><code>telefone</code></td><td>texto</td><td><span class="tag amarela">um dos dois</span></td><td>Até 30 caracteres. Aceita máscara: <code>(11) 99999-0000</code>. Com <code>+</code> no início, o DDI informado é usado.</td></tr>
+                    <tr><td><code>email</code></td><td>texto</td><td><span class="tag amarela">um dos dois</span></td><td>Até 254 caracteres.</td></tr>
+                    <tr><td><code>nome</code></td><td>texto</td><td><span class="tag">não</span></td><td>Até 150 caracteres.</td></tr>
+                    <tr><td><code>pais</code></td><td>número</td><td><span class="tag">não</span></td><td>DDI do telefone. Padrão <code>55</code>.</td></tr>
+                    <tr><td><code>origem</code></td><td>texto</td><td><span class="tag">não</span></td><td>Código de origem combinado na liberação da integração (ex.: <code>SITE</code>). Se omitido, usa a origem padrão da sua chave.</td></tr>
+                    <tr><td><code>campanha</code></td><td>texto</td><td><span class="tag">não</span></td><td>ID ou nome de uma campanha <strong>ativa</strong> da unidade.</td></tr>
+                    <tr><td><code>chaveEvento</code></td><td>texto</td><td><span class="tag">não</span></td><td>Identificador único do envio, 8 a 64 caracteres (<code>A-Z a-z 0-9 . _ : -</code>). Gerado automaticamente se omitido. <a href="#idempotencia">Saiba mais</a>.</td></tr>
+                </tbody>
+            </table>
+
+            <div class="aviso info">
+                <strong>Tratamento dos dados:</strong> espaços extras, tags HTML e os caracteres
+                <code>&lt; &gt; " ` ; \</code> são removidos dos campos. Acentos, <code>+</code>, parênteses,
+                <code>@</code>, apóstrofo, ponto e hífen são mantidos.
+            </div>
+
+            <!-- Console interativo -->
+            <div class="console" id="console">
+                <div class="console-topo">
+                    <h3>Testar agora</h3>
+                    <span class="console-aviso">As requisições são reais: <strong>LEAD_CRIADO</strong> registra um lead de verdade na unidade. Use dados de teste identificáveis.</span>
+                </div>
+
+                <div class="console-grid">
+                    <div class="console-form">
+                        <fieldset>
+                            <legend>Credenciais</legend>
+                            <label>X-Unidade
+                                <input type="text" id="tUnidade" value="00" autocomplete="off">
+                            </label>
+                            <label>X-Api-Key
+                                <span class="campo-senha">
+                                    <input type="password" id="tChave" placeholder="48 caracteres" autocomplete="off" spellcheck="false">
+                                    <button type="button" id="verChave" title="Mostrar/ocultar">&#128065;</button>
+                                </span>
+                                <small id="chaveInfo" class="dica"></small>
+                            </label>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>Lead</legend>
+                            <label>nome <input type="text" id="tNome" value="Teste Documentação"></label>
+                            <div class="linha">
+                                <label class="pais">pais <input type="text" id="tPais" value="55" maxlength="3"></label>
+                                <label>telefone <input type="text" id="tTelefone" placeholder="(11) 99999-0000"></label>
+                            </div>
+                            <label>email <input type="email" id="tEmail" placeholder="contato@exemplo.com"></label>
+                            <div class="linha">
+                                <label>origem <input type="text" id="tOrigem" placeholder="padrão da chave"></label>
+                                <label>campanha <input type="text" id="tCampanha" placeholder="ID ou nome"></label>
+                            </div>
+                            <label>chaveEvento
+                                <span class="campo-senha">
+                                    <input type="text" id="tChaveEvento" placeholder="gerada se vazio">
+                                    <button type="button" id="novaChaveEvento" title="Gerar nova">&#8635;</button>
+                                </span>
+                            </label>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>Formato do envio</legend>
+                            <div class="opcoes">
+                                <label><input type="radio" name="tFormato" value="json" checked> JSON</label>
+                                <label><input type="radio" name="tFormato" value="form"> x-www-form-urlencoded</label>
+                            </div>
+                        </fieldset>
+
+                        <div class="acoes">
+                            <button class="btn-primario" id="enviar">Enviar requisição</button>
+                            <button class="btn-sec" id="limpar" type="button">Limpar</button>
+                        </div>
+                    </div>
+
+                    <div class="console-saida">
+                        <div class="abas" data-grupo="console">
+                            <button class="aba ativa" data-aba="req">Requisição</button>
+                            <button class="aba" data-aba="res">Resposta</button>
+                        </div>
+                        <div class="painel ativo" data-painel="console:req">
+                            <div class="bloco-codigo">
+                                <div class="bloco-topo"><span>HTTP</span><button class="copiar" data-copiar="#previewReq">Copiar</button></div>
+<pre id="previewReq"></pre>
+                            </div>
+                        </div>
+                        <div class="painel" data-painel="console:res">
+                            <div id="resStatus" class="res-status vazio">Nenhuma requisição enviada ainda.</div>
+                            <div class="bloco-codigo">
+                                <div class="bloco-topo"><span>Cabeçalhos</span></div>
+<pre id="resHeaders">-</pre>
+                            </div>
+                            <div class="bloco-codigo">
+                                <div class="bloco-topo"><span>Corpo</span><button class="copiar" data-copiar="#resBody">Copiar</button></div>
+<pre id="resBody">-</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Formato da resposta ──────────────────────────────────── -->
+        <section id="respostas">
+            <h2>Formato da resposta</h2>
+            <p>Todas as respostas, de sucesso ou erro, seguem o mesmo formato:</p>
+            <table>
+                <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+                <tbody>
+                    <tr><td><code>erro</code></td><td>booleano</td><td><code>true</code> quando o HTTP é 400 ou maior.</td></tr>
+                    <tr><td><code>codigo</code></td><td>texto</td><td>Resultado da operação (veja <a href="#codigos">códigos</a>). Use este campo na sua lógica.</td></tr>
+                    <tr><td><code>mensagem</code></td><td>texto</td><td>Texto em português para exibir ou registrar.</td></tr>
+                    <tr><td><code>dados</code></td><td>objeto | null</td><td>Detalhes do resultado.</td></tr>
+                </tbody>
+            </table>
+
+            <div class="abas" data-grupo="exresp">
+                <button class="aba ativa" data-aba="201">201 Criado</button>
+                <button class="aba" data-aba="200">200 Já existe</button>
+                <button class="aba" data-aba="422">422 Inválido</button>
+                <button class="aba" data-aba="429">429 Bloqueado</button>
+            </div>
+            <div class="painel ativo" data-painel="exresp:201"><div class="bloco-codigo"><pre>{
+  "erro": false,
+  "codigo": "LEAD_CRIADO",
+  "mensagem": "Lead cadastrado com sucesso!",
+  "dados": {
+    "RESULTADO": "LEAD_CRIADO",
+    "CRIADO": true,
+    "ID_LEADS": 123,
+    "CHAVE_EVENTO": "form-123-abc"
+  }
+}</pre></div></div>
+            <div class="painel" data-painel="exresp:200"><div class="bloco-codigo"><pre>{
+  "erro": false,
+  "codigo": "LEAD_EXISTENTE",
+  "mensagem": "Este contato já está registrado como lead.",
+  "dados": {
+    "RESULTADO": "LEAD_EXISTENTE",
+    "CRIADO": false,
+    "ID_LEADS": 98,
+    "CHAVE_EVENTO": "form-123-abc"
+  }
+}</pre></div></div>
+            <div class="painel" data-painel="exresp:422"><div class="bloco-codigo"><pre>{
+  "erro": true,
+  "codigo": "DADOS_INVALIDOS",
+  "mensagem": "Informe ao menos um contato: telefone ou e-mail.",
+  "dados": null
+}</pre></div></div>
+            <div class="painel" data-painel="exresp:429"><div class="bloco-codigo"><pre>{
+  "erro": true,
+  "codigo": "LIMITE_EXCEDIDO",
+  "mensagem": "Limite de 30 requisições por minuto excedido. Chave de API bloqueada até 10/11/2026 14:35.",
+  "dados": {
+    "BLOQUEADO_ATE": "2026-11-10T14:35:00-03:00"
+  }
+}</pre></div></div>
+        </section>
+
+        <!-- ── Códigos ──────────────────────────────────────────────── -->
+        <section id="codigos">
+            <h2>Códigos de retorno</h2>
+            <div class="filtro">
+                <input type="search" id="filtroCodigos" placeholder="Filtrar por código, HTTP ou texto...">
+                <div class="chips" id="chipsCodigos">
+                    <button class="chip ativo" data-faixa="todos">Todos</button>
+                    <button class="chip" data-faixa="2">2xx</button>
+                    <button class="chip" data-faixa="4">4xx</button>
+                    <button class="chip" data-faixa="5">5xx</button>
+                </div>
+            </div>
+            <table id="tabelaCodigos">
+                <thead><tr><th>HTTP</th><th>codigo</th><th>Significado</th><th>O que fazer</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="http h2">201</span></td><td><code>LEAD_CRIADO</code></td><td>Lead cadastrado.</td><td>Sucesso.</td></tr>
+                    <tr><td><span class="http h2">200</span></td><td><code>LEAD_EXISTENTE</code></td><td>O contato já é um lead.</td><td>Nada; não houve duplicidade.</td></tr>
+                    <tr><td><span class="http h2">200</span></td><td><code>CADASTRO_EXISTENTE</code></td><td>O contato já pertence a uma pessoa cadastrada.</td><td>Nada; o contato já é cliente/cadastro.</td></tr>
+                    <tr><td><span class="http h2">200</span></td><td><code>CADASTRO_AMBIGUO</code></td><td>O contato aparece em mais de uma pessoa.</td><td>Verificar o cadastro na unidade.</td></tr>
+                    <tr><td><span class="http h2">200</span></td><td><code>CONFLITO_ENTRE_LEADS</code></td><td>Telefone e e-mail pertencem a leads diferentes.</td><td>Verificar os leads na unidade.</td></tr>
+                    <tr><td><span class="http h4">401</span></td><td><code>CREDENCIAIS_AUSENTES</code></td><td>Unidade ou chave não enviadas.</td><td>Enviar <code>X-Unidade</code> e <code>X-Api-Key</code>.</td></tr>
+                    <tr><td><span class="http h4">401</span></td><td><code>CHAVE_INVALIDA</code></td><td>Chave inexistente ou em formato inválido.</td><td>Conferir a chave (48 caracteres, só números e letras de a a f).</td></tr>
+                    <tr><td><span class="http h4">401</span></td><td><code>UNIDADE_INVALIDA</code></td><td>A chave não é desta unidade.</td><td>Conferir o código da unidade.</td></tr>
+                    <tr><td><span class="http h4">403</span></td><td><code>CHAVE_INATIVA</code></td><td>Chave desativada (substituída ou revogada).</td><td>Solicitar a chave atual ao responsável pela integração.</td></tr>
+                    <tr><td><span class="http h4">403</span></td><td><code>CHAVE_EXPIRADA</code></td><td>Passou da data de expiração.</td><td>Solicitar uma nova chave.</td></tr>
+                    <tr><td><span class="http h4">403</span></td><td><code>IP_NAO_PERMITIDO</code></td><td>A chave só aceita IPs cadastrados.</td><td>Informar o IP do seu servidor ao responsável pela integração.</td></tr>
+                    <tr><td><span class="http h4">404</span></td><td><code>ACAO_INVALIDA</code></td><td><code>AC</code> ou <code>a2</code> não reconhecidos.</td><td>Usar <code>AC=ActionLeads&amp;a2=incluir</code>.</td></tr>
+                    <tr><td><span class="http h4">405</span></td><td><code>METODO_INVALIDO</code></td><td>Método diferente de POST.</td><td>Enviar como POST.</td></tr>
+                    <tr><td><span class="http h4">422</span></td><td><code>DADOS_INVALIDOS</code></td><td>Campo inválido, campanha inexistente, país não suportado etc.</td><td>Ler a <code>mensagem</code> e corrigir o envio.</td></tr>
+                    <tr><td><span class="http h4">422</span></td><td><code>CONTATO_INVALIDO</code></td><td>Telefone/e-mail rejeitado pela validação.</td><td>Ver <code>dados.MOTIVO</code>.</td></tr>
+                    <tr><td><span class="http h4">429</span></td><td><code>LIMITE_EXCEDIDO</code></td><td>Passou do limite por minuto; a chave foi bloqueada.</td><td>Aguardar <code>Retry-After</code>.</td></tr>
+                    <tr><td><span class="http h4">429</span></td><td><code>CHAVE_BLOQUEADA</code></td><td>A chave está bloqueada.</td><td>Aguardar o <code>Retry-After</code>; se o bloqueio for sem prazo, solicitar a liberação.</td></tr>
+                    <tr><td><span class="http h4">429</span></td><td><code>IP_BLOQUEADO</code></td><td>Muitas tentativas com credenciais inválidas.</td><td>Aguardar 1 minuto e corrigir a chave.</td></tr>
+                    <tr><td><span class="http h5">500</span></td><td><code>ERRO_INTERNO</code></td><td>Falha inesperada no servidor.</td><td>Tentar de novo com a <strong>mesma</strong> <code>chaveEvento</code>.</td></tr>
+                </tbody>
+            </table>
+            <p id="semCodigos" class="vazio" hidden>Nenhum código encontrado.</p>
+        </section>
+
+        <!-- ── Idempotência ─────────────────────────────────────────── -->
+        <section id="idempotencia">
+            <h2>Reenvio seguro (chaveEvento)</h2>
+            <p>
+                Envie uma <code>chaveEvento</code> única por envio de formulário (ex.: o ID da submissão).
+                Se a mesma requisição for repetida, por timeout ou erro de rede, a API reconhece
+                a <code>chaveEvento</code> e <strong>não cria outro lead</strong>.
+            </p>
+            <div class="fluxo">
+                <div class="fluxo-item"><span>1º envio</span><code>chaveEvento: form-881</code><b class="ok">201 LEAD_CRIADO</b></div>
+                <div class="fluxo-seta">&rarr;</div>
+                <div class="fluxo-item"><span>Reenvio</span><code>chaveEvento: form-881</code><b class="neutro">200 CRIADO: false</b></div>
+            </div>
+        </section>
+
+        <!-- ── Limites ──────────────────────────────────────────────── -->
+        <section id="limites">
+            <h2>Limites e bloqueio</h2>
+            <div class="cards">
+                <div class="card">
+                    <h3>30 / minuto</h3>
+                    <p>Limite padrão por chave (pode variar por unidade). Cabeçalhos <code>X-RateLimit-Limit</code> e <code>X-RateLimit-Remaining</code> mostram o consumo.</p>
+                </div>
+                <div class="card">
+                    <h3>Bloqueio de 30 min</h3>
+                    <p>A requisição que passa do limite bloqueia a chave. O cabeçalho <code>Retry-After</code> informa os segundos restantes.</p>
+                </div>
+                <div class="card">
+                    <h3>3 bloqueios em 24h</h3>
+                    <p>A partir do 3º bloqueio em 24 horas, a chave fica bloqueada sem prazo até ser liberada manualmente.</p>
+                </div>
+                <div class="card">
+                    <h3>10 erros / minuto por IP</h3>
+                    <p>IP com muitas tentativas de chave inválida é recusado por 1 minuto.</p>
+                </div>
+            </div>
+
+            <h3>Simulador</h3>
+            <div class="simulador">
+                <label>Requisições no mesmo minuto: <strong id="simValor">20</strong>
+                    <input type="range" id="simRange" min="1" max="60" value="20">
+                </label>
+                <div class="barra"><div class="barra-uso" id="simBarra"></div><div class="barra-limite"></div></div>
+                <p id="simTexto"></p>
+            </div>
+        </section>
+
+        <!-- ── Boas práticas ────────────────────────────────────────── -->
+        <section id="boas-praticas">
+            <h2>Boas práticas</h2>
+            <table>
+                <thead><tr><th>Situação</th><th>Recomendação</th></tr></thead>
+                <tbody>
+                    <tr><td>Timeout ou erro de rede</td><td>Reenvie com a <strong>mesma</strong> <code>chaveEvento</code>; o lead não será duplicado.</td></tr>
+                    <tr><td>HTTP 500</td><td>Tente de novo após alguns segundos, com espera crescente (ex.: 5s, 30s, 2min), no máximo 3 vezes.</td></tr>
+                    <tr><td>HTTP 429</td><td>Pare os envios e respeite o cabeçalho <code>Retry-After</code>. Não insista: novas tentativas não liberam a chave.</td></tr>
+                    <tr><td>HTTP 401, 403 ou 422</td><td>Não reenvie: corrija as credenciais ou os dados antes.</td></tr>
+                    <tr><td>HTTP 200 com <code>CRIADO: false</code></td><td>Sucesso da integração; o contato já existia. Não é erro.</td></tr>
+                    <tr><td>Envios em lote</td><td>Distribua ao longo do tempo para ficar abaixo do limite por minuto.</td></tr>
+                    <tr><td>Registros</td><td>Guarde <code>chaveEvento</code>, <code>codigo</code> e <code>ID_LEADS</code> de cada envio para conferência.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ── Exemplos ─────────────────────────────────────────────── -->
+        <section id="exemplos">
+            <h2>Exemplos de código</h2>
+            <p>Os exemplos usam os valores preenchidos em <a href="#console">Testar agora</a> (a chave aparece mascarada).</p>
+            <div class="abas" data-grupo="ex">
+                <button class="aba ativa" data-aba="curl">cURL</button>
+                <button class="aba" data-aba="php">PHP</button>
+                <button class="aba" data-aba="node">Node.js</button>
+                <button class="aba" data-aba="python">Python</button>
+            </div>
+            <div class="painel ativo" data-painel="ex:curl"><div class="bloco-codigo"><div class="bloco-topo"><span>bash</span><button class="copiar" data-copiar="#exCurl">Copiar</button></div><pre id="exCurl"></pre></div></div>
+            <div class="painel" data-painel="ex:php"><div class="bloco-codigo"><div class="bloco-topo"><span>php</span><button class="copiar" data-copiar="#exPhp">Copiar</button></div><pre id="exPhp"></pre></div></div>
+            <div class="painel" data-painel="ex:node"><div class="bloco-codigo"><div class="bloco-topo"><span>javascript</span><button class="copiar" data-copiar="#exNode">Copiar</button></div><pre id="exNode"></pre></div></div>
+            <div class="painel" data-painel="ex:python"><div class="bloco-codigo"><div class="bloco-topo"><span>python</span><button class="copiar" data-copiar="#exPython">Copiar</button></div><pre id="exPython"></pre></div></div>
+        </section>
+
+        <!-- ── Dúvidas ──────────────────────────────────────────────── -->
+        <section id="duvidas">
+            <h2>Dúvidas comuns</h2>
+            <details>
+                <summary>Recebo CHAVE_INVALIDA ou UNIDADE_INVALIDA</summary>
+                <p>Confira se a chave tem exatamente 48 caracteres, sem espaços, e se o código da unidade é o mesmo
+                informado junto com ela. Cada chave só funciona com a sua unidade.</p>
+            </details>
+            <details>
+                <summary>A resposta veio 200, mas o lead não apareceu</summary>
+                <p>Veja o <code>codigo</code>: <code>LEAD_EXISTENTE</code>, <code>CADASTRO_EXISTENTE</code>, <code>CADASTRO_AMBIGUO</code> e <code>CONFLITO_ENTRE_LEADS</code> não criam lead novo (<code>dados.CRIADO = false</code>).</p>
+            </details>
+            <details>
+                <summary>Como cadastrar o lead numa campanha?</summary>
+                <p>Envie <code>campanha</code> com o ID ou o nome exato de uma campanha ativa da unidade. Se não existir, a API responde 422.</p>
+            </details>
+            <details>
+                <summary>Telefone internacional</summary>
+                <p>Envie <code>pais</code> com o DDI (ex.: <code>351</code>) ou o telefone já com <code>+</code> (ex.: <code>+351 912 345 678</code>).</p>
+            </details>
+            <details>
+                <summary>Minha chave foi bloqueada. O que fazer?</summary>
+                <p>Bloqueios por excesso de requisições são liberados sozinhos após o prazo indicado em
+                <code>Retry-After</code> e em <code>dados.BLOQUEADO_ATE</code>. Quando <code>BLOQUEADO_ATE</code> vier
+                <code>null</code>, o bloqueio é sem prazo: solicite a liberação ao responsável pela integração e
+                revise o volume de envios.</p>
+            </details>
+            <details>
+                <summary>Posso chamar a API direto do formulário do site (JavaScript)?</summary>
+                <p>Não. A chave ficaria visível para qualquer visitante. Envie o formulário para o seu servidor
+                e faça a chamada à API a partir dele.</p>
+            </details>
+            <details>
+                <summary>Existe ambiente de testes?</summary>
+                <p>As chamadas são processadas em produção. Para validar a integração, use dados claramente
+                identificáveis como teste (ex.: nome "Teste Integração") e avise a unidade.</p>
+            </details>
+        </section>
+
+        <footer class="rodape">LEAD API &middot; Documentação de integração</footer>
+    </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
